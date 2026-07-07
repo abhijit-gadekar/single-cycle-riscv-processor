@@ -1,0 +1,11 @@
+# Simulation outputs
+*.vcd
+*.out
+*.log
+*.dump
+
+# Editor
+.vscode/
+
+# Temporary files
+*~
