@@ -1,4 +1,8 @@
-# Program Counter (PC)
+# Single-Cycle RISC-V Processor Architecture
+
+
+
+# 1. Program Counter (PC)
 
 ## Overview
 
@@ -54,6 +58,75 @@ RTL/program_counter.v
 
 ---
 
+# 2. Instruction Memory
+
+## Description
+
+The Instruction Memory stores the program instructions and provides a single read port.
+
+The processor supplies a **32-bit instruction address**, and the memory
+returns the corresponding **32-bit instruction**.
+
+The memory is **word aligned**, therefore only address bits **[31:2]**
+are used for indexing.
+
+Instructions are initialized using the Verilog system task
+`$readmemh()` from
+
+```
+Programs/instructions.mem
+```
+
+This memory is **read-only** during processor execution.
+
+
+## Block Diagram
+
+<img width="202" height="202" alt="image" src="https://github.com/user-attachments/assets/2c3e41c4-d7f0-4f49-a62b-6521b29fd413" />
+
+
+## Inputs
+
+| Signal | Width | Description |
+|---------|------:|-------------|
+| addr | 32 | Instruction Address |
+
+## Outputs
+
+| Signal | Width | Description |
+|---------|------:|-------------|
+| instruction | 32 | Instruction Word |
+
+## Memory Organization
+
+```
+Address        Instruction
+
+0x00000000 -> Instruction 0
+0x00000004 -> Instruction 1
+0x00000008 -> Instruction 2
+0x0000000C -> Instruction 3
+...
+```
+
+## Address Mapping
+
+Since every instruction occupies **4 bytes**,
+
+```
+Memory Index = addr[31:2]
+```
+
+This ignores the two least significant bits because instructions are
+always word aligned.
+
+---
+
+## Execution Flow
+
+<img width="281" height="212" alt="image" src="https://github.com/user-attachments/assets/29426b90-e912-4d92-924c-c6f38b094cdf" />
+
+
 ## References
 
 Digital Design and Computer Architecture: RISC-V Edition
@@ -61,3 +134,4 @@ Digital Design and Computer Architecture: RISC-V Edition
 Sarah L. Harris
 
 David Money Harris
+
