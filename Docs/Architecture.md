@@ -126,6 +126,45 @@ always word aligned.
 
 <img width="281" height="212" alt="image" src="https://github.com/user-attachments/assets/29426b90-e912-4d92-924c-c6f38b094cdf" />
 
+# 3. Register File
+
+## Description
+
+The Register File contains thirty-two 32-bit general-purpose registers
+(`x0`–`x31`).
+
+It provides:
+
+- Two asynchronous read ports
+- One synchronous write port
+
+Register `x0` is hardwired to zero. Any attempt to write to `x0` is ignored.
+
+## Inputs
+
+| Signal | Width | Description |
+|---------|------:|-------------|
+| clk | 1 | System Clock |
+| we | 1 | Write Enable |
+| rs1 | 5 | Read Address 1 |
+| rs2 | 5 | Read Address 2 |
+| rd | 5 | Write Address |
+| write_data | 32 | Data to be written |
+
+## Outputs
+
+| Signal | Width | Description |
+|---------|------:|-------------|
+| read_data1 | 32 | Data from `rs1` |
+| read_data2 | 32 | Data from `rs2` |
+
+## Features
+
+- 32 × 32-bit registers
+- Two asynchronous read ports
+- One synchronous write port
+- `x0` always returns zero
+- Writes to `x0` are ignored
 
 ## References
 
