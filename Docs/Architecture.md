@@ -1,176 +1,539 @@
-# Single-Cycle RISC-V Processor Architecture
-
-
-
-# 1. Program Counter (PC)
+# Single-Cycle RV32I Processor Architecture
 
 ## Overview
 
-The Program Counter (PC) is a 32-bit register that stores the address of the instruction currently being executed.
+This project implements a **32-bit Single-Cycle RISC-V (RV32I) Processor** in Verilog HDL.
 
-At every rising edge of the clock, the PC loads the address of the next instruction (`pc_next`).
+The processor executes every instruction in **one clock cycle**, meaning instruction fetch, decode, execute, memory access, and write-back all occur within the same cycle.
 
-During reset, the PC is cleared to address **0x00000000**.
-
----
-
-## Block Diagram
-
-<img width="146" height="147" alt="image" src="https://github.com/user-attachments/assets/87137ca0-5d9c-482b-9ec4-da40d2ad5f50" />
-
+The design follows the RV32I base integer instruction set and is organized as a modular datapath and control unit.
 
 ---
 
-## Inputs
+# Top-Level Architecture
 
-| Signal | Width | Description |
-|---------|------:|-------------|
-| clk | 1 | System clock |
-| rst | 1 | Active-high synchronous reset |
-| pc_next | 32 | Address of next instruction |
+<p align="center">
+<img src="https://github.com/user-attachments/assets/e38d738a-0e5a-4d78-832e-15261c7c3d3b" width="900">
+</p>
 
 ---
 
-## Outputs
+# Processor Specifications
 
-| Signal | Width | Description |
-|---------|------:|-------------|
-| pc | 32 | Current instruction address |
-
----
-
-## Operation
-
-```
-if (rst)
-    pc = 0;
-else
-    pc = pc_next;
-```
+| Parameter | Value |
+|-----------|-------|
+| ISA | RV32I |
+| Architecture | Single Cycle |
+| Data Width | 32 bits |
+| Address Width | 32 bits |
+| Register Count | 32 |
+| Register Width | 32 bits |
+| Register x0 | Hardwired to Zero |
+| Memory | Word Addressed |
+| Endianness | Little Endian |
+| Clocking | Single Clock |
 
 ---
 
-## RTL File
+# Datapath
+
+The datapath performs all arithmetic and data movement operations.
+
+It contains:
+
+- Program Counter
+- Instruction Memory
+- Register File
+- Immediate Generator
+- ALU Operand Multiplexer
+- ALU
+- Data Memory
+- Result Multiplexer
+- PC Target Adder
+- PC Selection Multiplexer
+
+---
+
+## Program Counter
+
+Maintains the address of the current instruction.
+
+### Inputs
+
+- clk
+- reset
+- pc_next
+
+### Output
+
+- pc
+
+Behavior
 
 ```
-RTL/program_counter.v
+reset -> PC = 0
+
+otherwise
+
+PC <- pc_next
 ```
 
 ---
 
-# 2. Instruction Memory
+## Instruction Memory
 
-## Description
+Instruction memory stores the machine code program.
 
-The Instruction Memory stores the program instructions and provides a single read port.
-
-The processor supplies a **32-bit instruction address**, and the memory
-returns the corresponding **32-bit instruction**.
-
-The memory is **word aligned**, therefore only address bits **[31:2]**
-are used for indexing.
-
-Instructions are initialized using the Verilog system task
-`$readmemh()` from
+Input
 
 ```
-Programs/instructions.mem
+Address = PC
 ```
 
-This memory is **read-only** during processor execution.
-
-
-## Block Diagram
-
-<img width="202" height="202" alt="image" src="https://github.com/user-attachments/assets/2c3e41c4-d7f0-4f49-a62b-6521b29fd413" />
-
-
-## Inputs
-
-| Signal | Width | Description |
-|---------|------:|-------------|
-| addr | 32 | Instruction Address |
-
-## Outputs
-
-| Signal | Width | Description |
-|---------|------:|-------------|
-| instruction | 32 | Instruction Word |
-
-## Memory Organization
+Output
 
 ```
-Address        Instruction
+32-bit Instruction
+```
 
-0x00000000 -> Instruction 0
-0x00000004 -> Instruction 1
-0x00000008 -> Instruction 2
-0x0000000C -> Instruction 3
+The memory is initialized using
+
+```
+$readmemh("instructions.mem")
+```
+
+during simulation.
+
+---
+
+## Register File
+
+Contains the 32 architectural registers.
+
+```
+x0
+x1
 ...
+x31
 ```
 
-## Address Mapping
+Features
 
-Since every instruction occupies **4 bytes**,
-
-```
-Memory Index = addr[31:2]
-```
-
-This ignores the two least significant bits because instructions are
-always word aligned.
+- Two read ports
+- One write port
+- x0 is constant zero
+- Synchronous write
+- Asynchronous read
 
 ---
 
-## Execution Flow
+## Immediate Generator
 
-<img width="281" height="212" alt="image" src="https://github.com/user-attachments/assets/29426b90-e912-4d92-924c-c6f38b094cdf" />
+Generates properly sign-extended immediates.
 
-# 3. Register File
+Supported instruction formats
 
-## Description
+- I-Type
+- S-Type
+- B-Type
+- U-Type
+- J-Type
 
-The Register File contains thirty-two 32-bit general-purpose registers
-(`x0`–`x31`).
+Outputs a 32-bit immediate.
 
-It provides:
+---
 
-- Two asynchronous read ports
-- One synchronous write port
+## ALU Operand Multiplexer
 
-Register `x0` is hardwired to zero. Any attempt to write to `x0` is ignored.
+Selects the second ALU operand.
 
-## Inputs
+```
+ALUSrc = 0
 
-| Signal | Width | Description |
-|---------|------:|-------------|
-| clk | 1 | System Clock |
-| we | 1 | Write Enable |
-| rs1 | 5 | Read Address 1 |
-| rs2 | 5 | Read Address 2 |
-| rd | 5 | Write Address |
-| write_data | 32 | Data to be written |
+Operand B = Register rs2
+```
 
-## Outputs
+```
+ALUSrc = 1
 
-| Signal | Width | Description |
-|---------|------:|-------------|
-| read_data1 | 32 | Data from `rs1` |
-| read_data2 | 32 | Data from `rs2` |
+Operand B = Immediate
+```
 
-## Features
+---
 
-- 32 × 32-bit registers
-- Two asynchronous read ports
-- One synchronous write port
-- `x0` always returns zero
-- Writes to `x0` are ignored
+## Arithmetic Logic Unit
 
-## References
+Performs all arithmetic and logical operations.
 
-Digital Design and Computer Architecture: RISC-V Edition
+Supported operations
 
-Sarah L. Harris
+- ADD
+- SUB
+- AND
+- OR
+- XOR
+- SLL
+- SRL
+- SRA
+- SLT
+- SLTU
 
-David Money Harris
+Status Flags
 
+- Zero
+- Negative
+- Carry
+- Overflow
+
+---
+
+## Data Memory
+
+Supports
+
+- LW
+- SW
+
+Interface
+
+```
+Address
+
+Write Data
+
+Read Data
+
+MemWrite
+```
+
+---
+
+## Result Multiplexer
+
+Selects the data written back into the register file.
+
+Possible sources
+
+- ALU Result
+- Data Memory
+- PC + 4
+
+---
+
+## PC Target Adder
+
+Computes
+
+```
+PC Target
+
+=
+
+Current PC
+
++
+
+Immediate
+```
+
+Used for
+
+- Branches
+- Jumps
+
+---
+
+## PC Multiplexer
+
+Selects the next PC.
+
+```
+PCNext
+
+=
+
+PC+4
+
+or
+
+Branch Target
+```
+
+Selected using
+
+```
+PCSrc
+```
+
+---
+
+# Control Unit
+
+The control unit generates all control signals.
+
+It consists of
+
+```
+Main Decoder
+
++
+
+ALU Decoder
+```
+
+---
+
+## Main Decoder
+
+Decodes the opcode.
+
+Generates
+
+- RegWrite
+- ALUSrc
+- MemWrite
+- ResultSrc
+- Branch
+- Jump
+- ImmSrc
+- ALUOp
+
+---
+
+## ALU Decoder
+
+Uses
+
+- funct3
+- funct7
+- opcode class
+
+to generate
+
+```
+ALUControl
+```
+
+Supported operations
+
+| ALUControl | Operation |
+|------------|-----------|
+|0000|ADD|
+|0001|SUB|
+|0010|AND|
+|0011|OR|
+|0100|XOR|
+|0101|SLT|
+|0110|SLTU|
+|0111|SLL|
+|1000|SRL|
+|1001|SRA|
+
+---
+
+## Branch Decision Logic
+
+Supported branch instructions
+
+- BEQ
+- BNE
+- BLT
+- BGE
+- BLTU
+- BGEU
+
+Decision uses
+
+- Zero
+- Negative
+- Carry
+- Overflow
+
+---
+
+# Instruction Flow
+
+Every instruction executes completely in one clock cycle.
+
+```
+Instruction Fetch
+
+↓
+
+Instruction Decode
+
+↓
+
+Register Read
+
+↓
+
+Immediate Generation
+
+↓
+
+Execute
+
+↓
+
+Memory Access
+
+↓
+
+Write Back
+
+↓
+
+Next Instruction
+```
+
+---
+
+# Supported RV32I Instructions
+
+## Arithmetic
+
+- ADD
+- ADDI
+- SUB
+
+---
+
+## Logical
+
+- AND
+- ANDI
+- OR
+- ORI
+- XOR
+- XORI
+
+---
+
+## Shift
+
+- SLL
+- SLLI
+- SRL
+- SRLI
+- SRA
+- SRAI
+
+---
+
+## Comparison
+
+- SLT
+- SLTU
+- SLTI
+- SLTIU
+
+---
+
+## Memory
+
+- LW
+- SW
+
+---
+
+## Branch
+
+- BEQ
+- BNE
+- BLT
+- BGE
+- BLTU
+- BGEU
+
+---
+
+## Jump
+
+- JAL
+- JALR
+
+---
+
+# RTL Module Hierarchy
+
+```
+top
+
+└── riscv_core
+
+    ├── control_unit
+
+    │   ├── main_decoder
+
+    │   └── alu_decoder
+
+    │
+
+    └── datapath
+
+        ├── program_counter
+
+        ├── instruction_memory
+
+        ├── register_file
+
+        ├── immediate_extend
+
+        ├── alu_mux
+
+        ├── alu
+
+        ├── data_memory
+
+        ├── result_mux
+
+        ├── pc_target
+
+        └── pc_mux
+```
+
+---
+
+# Verification
+
+The processor is verified using a self-checking Verilog testbench.
+
+Regression suite includes
+
+- Basic Arithmetic
+- Logic Operations
+- Shift Operations
+- Comparison Instructions
+- Memory Operations
+- Branch Instructions
+- Jump Instructions
+- Immediate Instructions
+- Edge Cases
+- Mixed Stress Program
+
+Regression Result
+
+```
+Passed : 10
+
+Failed : 0
+```
+
+---
+
+# Design Characteristics
+
+- Modular RTL
+- Hierarchical architecture
+- Fully synthesizable RTL
+- Self-checking verification
+- Automated regression framework
+- RV32I compliant instruction subset
+- Suitable for ASIC and FPGA implementation
+
+---
+
+# Future Work
+
+- RTL-to-GDSII implementation using OpenLane and SKY130
