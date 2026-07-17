@@ -18,7 +18,10 @@ module control_unit(
     input  wire       funct7b5,
 
     input  wire       Zero,
-
+    input  wire Negative,
+    input  wire Carry,
+    input  wire Overflow,
+    
     output wire       RegWrite,
     output wire [2:0] ImmSrc,
     output wire       ALUSrc,
@@ -72,6 +75,16 @@ module control_unit(
     //----------------------------------------------------------
     // Next PC Selection
     //----------------------------------------------------------
-    assign PCSrc = (Branch & Zero) | Jump;
+    wire BranchTaken;
 
+    assign BranchTaken =
+       (funct3 == 3'b000) ?  Zero                    :   // BEQ
+       (funct3 == 3'b001) ? ~Zero                    :   // BNE
+       (funct3 == 3'b100) ? (Negative ^ Overflow)    :   // BLT
+       (funct3 == 3'b101) ? ~(Negative ^ Overflow)   :   // BGE
+       (funct3 == 3'b110) ? ~Carry                   :   // BLTU
+       (funct3 == 3'b111) ? Carry                    :   // BGEU
+                            1'b0;
+
+    assign PCSrc = (Branch & BranchTaken) | Jump;
 endmodule

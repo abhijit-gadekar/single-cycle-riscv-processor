@@ -74,16 +74,6 @@ always @(*) begin
             ImmSrc   = 3'b100;
         end
 
-        // JALR
-        7'b1100111: begin
-            RegWrite = 1'b1;
-            Jump     = 1'b1;
-            ALUSrc   = 1'b1;
-            ResultSrc= 2'b10;
-            ALUOp    = 2'b00;
-            ImmSrc   = 3'b000;
-        end
-
         // LUI
         7'b0110111: begin
             RegWrite = 1'b1;
